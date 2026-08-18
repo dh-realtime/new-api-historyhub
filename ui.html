@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Chat History · new-api</title>
+<style>
+  :root { --bg:#1a1a1a; --panel:#242424; --panel2:#2e2e2e; --border:#3a3a3a; --fg:#e8e8e8; --muted:#9a9a9a; --accent:#4f9cf9; --user:#3a5a8c; --asst:#33373d; }
+  * { box-sizing:border-box; }
+  html,body { height:100%; margin:0; }
+  body { background:var(--bg); color:var(--fg); font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; display:flex; }
+  #sidebar { width:260px; background:var(--panel); border-right:1px solid var(--border); display:flex; flex-direction:column; flex-shrink:0; }
+  #sidebar .head { padding:12px; border-bottom:1px solid var(--border); display:flex; gap:8px; }
+  #sidebar .head button { flex:1; }
+  #list { flex:1; overflow:auto; padding:8px; }
+  .conv { padding:10px 12px; border-radius:8px; cursor:pointer; margin-bottom:4px; display:flex; align-items:center; gap:8px; }
+  .conv:hover { background:var(--panel2); }
+  .conv.active { background:var(--panel2); }
+  .conv .t { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .conv .del { color:var(--muted); opacity:0; font-size:13px; }
+  .conv:hover .del { opacity:1; }
+  .conv .del:hover { color:#ff6b6b; }
+  #main { flex:1; display:flex; flex-direction:column; min-width:0; }
+  .bar { background:var(--panel); border-bottom:1px solid var(--border); padding:10px 12px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .bar input { background:var(--panel2); border:1px solid var(--border); color:var(--fg); border-radius:6px; padding:7px 9px; outline:none; }
+  .bar input:focus { border-color:var(--accent); }
+  #key { width:240px; } #model { width:200px; }
+  button { background:var(--accent); color:#fff; border:0; border-radius:6px; padding:8px 12px; cursor:pointer; font-size:13px; }
+  button.ghost { background:var(--panel2); } button:hover { filter:brightness(1.08); }
+  #msgs { flex:1; overflow:auto; padding:20px; max-width:900px; width:100%; margin:0 auto; }
+  .turn { margin-bottom:20px; }
+  .msg { margin-bottom:10px; }
+  .msg .role { font-size:12px; color:var(--muted); margin-bottom:4px; display:flex; gap:8px; align-items:center; }
+  .msg .role .mdl { color:var(--accent); }
+  .bubble { padding:11px 14px; border-radius:10px; white-space:pre-wrap; word-wrap:break-word; }
+  .msg.user .bubble { background:var(--user); } .msg.assistant .bubble { background:var(--asst); }
+  .fil { margin-top:6px; display:flex; flex-wrap:wrap; gap:6px; }
+  .fil img { max-width:170px; max-height:170px; border-radius:6px; border:1px solid var(--border); }
+  .fil a { font-size:12px; color:var(--accent); }
+  #composer { border-top:1px solid var(--border); background:var(--panel); padding:12px; display:flex; gap:8px; max-width:900px; width:100%; margin:0 auto; }
+  #input { flex:1; background:var(--panel2); border:1px solid var(--border); color:var(--fg); border-radius:8px; padding:10px; resize:none; height:52px; outline:none; font-family:inherit; }
+  #input:focus { border-color:var(--accent); }
+  .empty { color:var(--muted); text-align:center; margin-top:80px; }
+  a { color:var(--accent); }
+</style>
+</head>
+<body>
+<div id="sidebar">
+  <div class="head"><button onclick="newChat()">+ 新建会话</button></div>
+  <div id="list"></div>
+</div>
+<div id="main">
+  <div class="bar">
+    <input id="key" type="password" placeholder="API 密钥 sk-..." />
+    <input id="model" placeholder="模型，如 GD-LLM" />
+    <button class="ghost" onclick="saveSettings()">保存</button>
+    <span style="flex:1"></span>
+    <span style="color:var(--muted);font-size:12px">历史会话由 :3001 historyhub 提供</span>
+  </div>
+  <div id="msgs"><div class="empty">填写 API 密钥与模型后即可开始对话。<br/>所有会话自动保存在你的账号下。</div></div>
+  <div id="composer">
+    <textarea id="input" placeholder="输入消息，Ctrl/⌘+Enter 发送"></textarea>
+    <button onclick="send()">发送</button>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+// turns: recorded q/a pairs. Also the source for rebuilding upstream context.
+let convId = null, turns = [];
+
+function ls(k,v){ try{ if(v===undefined) return localStorage.getItem(k); localStorage.setItem(k,v); }catch(e){} }
+function escapeHtml(s){ return (s==null?'':String(s)).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+window.addEventListener('DOMContentLoaded', () => {
+  $('key').value = ls('hh_key') || '';
+  $('model').value = ls('hh_model') || '';
+  $('input').addEventListener('keydown', e => { if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){ send(); } });
+  loadSen();
+});
+
+function saveSettings(){ ls('hh_key',$('key').value); ls('hh_model',$('model').value); }
+
+// The marker header tells historyhub this request is from the web UI (isKey=0).
+function authHeaders(extra){
+  const h = {'Authorization':'Bearer '+($('key').value.trim()), 'X-Historyhub-UI':'1'};
+  return Object.assign(h, extra||{});
+}
+
+async function loadSen(){
+  if(!$('key').value.trim()){ $('list').innerHTML=''; return; }
+  try{
+    const r = await fetch('/history/sen',{headers:authHeaders()});
+    const j = await r.json(); const data = j.data||[];
+    $('list').innerHTML = data.map(c=>`<div class="conv ${c.id===convId?'active':''}" onclick="selectConv(${c.id})">
+      <span class="t">${escapeHtml(c.title||'New chat')}</span><span class="del" onclick="delConv(event,${c.id})">✕</span></div>`).join('');
+  }catch(e){ $('list').innerHTML=''; }
+}
+
+async function selectConv(id){
+  convId=id; turns=[];
+  try{
+    const r=await fetch(`/history/sen/${id}/messages`,{headers:authHeaders()});
+    const j=await r.json();
+    turns=(j.data||[]).map(m=>({q:m.q, a:m.a, aModel:m.a_model, qFil:m.q_fil, aFil:m.a_fil}));
+  }catch(e){}
+  loadSen(); render();
+}
+
+async function delConv(e,id){ e.stopPropagation(); if(!confirm('删除该会话？'))return;
+  await fetch(`/history/sen/${id}`,{method:'DELETE',headers:authHeaders()}); if(convId===id) newChat(); else loadSen();
+}
+
+function newChat(){ convId=null; turns=[]; render(); loadSen(); $('input').focus(); }
+
+// Build the OpenAI messages array from recorded turns + the in-flight question,
+// so the upstream model gets full conversation context.
+function buildReqMessages(pendingQ){
+  const out=[];
+  for(const t of turns){
+    if(t.q) out.push({role:'user', content:t.q});
+    if(t.a) out.push({role:'assistant', content:t.a});
+  }
+  if(pendingQ!=null) out.push({role:'user', content:pendingQ});
+  return out;
+}
+
+function renderFil(fil){
+  if(!fil) return '';
+  const ids=String(fil).split(',').map(s=>s.trim()).filter(Boolean);
+  if(!ids.length) return '';
+  return '<div class="fil">'+ids.map(id=>{
+    const url=`/history/file/${encodeURIComponent(id)}?_t=${Date.now()}`;
+    return `<a href="${url}" target="_blank"><img src="${url}" alt="附件 ${escapeHtml(id)}" onerror="this.parentNode.innerHTML='📎 <span>附件 ${escapeHtml(id)}</span>'"></a>`;
+  }).join('')+'</div>';
+}
+
+function render(){
+  if(turns.length===0){ $('msgs').innerHTML='<div class="empty">开始一段新对话。</div>'; return; }
+  let html='';
+  turns.forEach((t,i)=>{
+    html+=`<div class="turn">`
+      + `<div class="msg user"><div class="role">我</div><div class="bubble">${escapeHtml(t.q)}${renderFil(t.qFil)}</div></div>`
+      + `<div class="msg assistant"><div class="role">模型${t.aModel?` <span class="mdl">${escapeHtml(t.aModel)}</span>`:''}</div><div class="bubble" id="b${i}">${escapeHtml(t.a)}${renderFil(t.aFil)}</div></div>`
+      + `</div>`;
+  });
+  $('msgs').innerHTML=html;
+  $('msgs').scrollTop=$('msgs').scrollHeight;
+}
+
+async function send(){
+  const text=$('input').value.trim(); if(!text) return;
+  const key=$('key').value.trim(); if(!key){ alert('请先填写 API 密钥'); return; }
+  const model=$('model').value.trim(); if(!model){ alert('请填写模型名'); return; }
+  saveSettings();
+  $('input').value='';
+  // Optimistic turn: user question shown now, assistant answer streams in.
+  const turn={q:text, a:'', aModel:'', qFil:'', aFil:''};
+  turns.push(turn);
+  const reqMessages=buildReqMessages(null); // turn.q already pushed into `turns`
+  render();
+  const bubble=$('b'+(turns.length-1));
+  try{
+    const resp=await fetch('/v1/chat/completions',{method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+key,'X-Historyhub-UI':'1','X-Sen-Id':convId?String(convId):''},
+      body:JSON.stringify({model,messages:reqMessages,stream:true})});
+    if(!resp.ok){ turn.a='[报错Error] '+(await resp.text()); render(); loadSen(); return; }
+    const nid=resp.headers.get('X-Sen-Id'); if(nid) convId=Number(nid);
+    const reader=resp.body.getReader(); const dec=new TextDecoder(); let buf='';
+    while(true){
+      const {done,value}=await reader.read(); if(done) break;
+      buf+=dec.decode(value,{stream:true});
+      let idx;
+      while((idx=buf.indexOf('\n'))>=0){
+        let line=buf.slice(0,idx); buf=buf.slice(idx+1); line=line.replace(/\r$/,'');
+        if(line.startsWith('data: ')){
+          const d=line.slice(6);
+          if(d==='[DONE]') continue;
+          try{ const j=JSON.parse(d); const c=j.choices&&j.choices[0]&&j.choices[0].delta&&j.choices[0].delta.content;
+            if(c){ turn.a+=c; render(); } }catch(e){}
+        }
+      }
+    }
+    if(!turn.a) turn.a='(空回复)';
+    render();
+  }catch(e){ turn.a='请求失败: '+e.message; render(); }
+  loadSen();
+}
+</script>
+</body>
+</html>

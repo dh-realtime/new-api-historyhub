@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#ffffff">
+<title>中国何工 · 大模型聚合平台</title>
+<link rel="icon" type="image/svg+xml" href="/web/res/favicon.svg">
+<link rel="stylesheet" href="/web/css/app.css">
+</head>
+<body>
+
+<!-- 登录（深色科技风） -->
+<div id="login-view" class="hidden">
+	<div class="lg-glow"></div>
+	<div class="lg-grid"></div>
+	<form id="login-form" class="lg-box" autocomplete="on">
+		<svg class="lg-logo" viewBox="0 0 64 64" aria-hidden="true">
+			<defs>
+				<linearGradient id="lgHex" x1="0" y1="0" x2="1" y2="1">
+					<stop offset="0" stop-color="#7fb0ff"/>
+					<stop offset="1" stop-color="#3f6df0"/>
+				</linearGradient>
+			</defs>
+			<path d="M32 4 56 18v28L32 60 8 46V18Z" fill="none" stroke="url(#lgHex)" stroke-width="3" stroke-linejoin="round"/>
+			<text x="32" y="42" text-anchor="middle" font-size="27" font-weight="700" fill="#3f6df0">鼎</text>
+		</svg>
+		<div class="lg-title">中国何工</div>
+		<div class="lg-sub">大模型聚合平台</div>
+		<label class="lg-field">
+			<svg class="lg-ico" viewBox="0 0 24 24"><path d="M7 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Zm5 15a1 1 0 1 0 0 2 1 1 0 0 0 0-2Z" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
+			<input id="login-username" name="username" placeholder="手机号" autocomplete="username" autocapitalize="none" required>
+		</label>
+		<label class="lg-field">
+			<svg class="lg-ico" viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8 10V7a4 4 0 1 1 8 0v3" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
+			<input id="login-password" name="password" type="password" placeholder="密码" autocomplete="current-password" required>
+			<button id="pw-eye" type="button" data-tooltip="显示/隐藏密码" aria-label="显示或隐藏密码">
+				<svg id="pw-eye-on" viewBox="0 0 24 24"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="2.6" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
+				<svg id="pw-eye-off" viewBox="0 0 24 24" class="hidden"><path d="M4 4l16 16M9.9 5.2A10.9 10.9 0 0 1 12 5c6.5 0 10 6 10 6a17.6 17.6 0 0 1-3.2 3.8M6.6 6.7A16.7 16.7 0 0 0 2 11s3.5 6 10 6a10.6 10.6 0 0 0 4.4-.9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+			</button>
+		</label>
+		<div id="login-error" class="lg-error"></div>
+		<button id="login-btn" type="submit" class="lg-btn">登 录</button>
+		<div class="lg-foot">© 中国何工 · 大模型聚合平台</div>
+	</form>
+</div>
+
+<!-- 主界面 -->
+<div id="app-view" class="hidden">
+	<aside id="sidebar">
+		<div class="sb-top">
+			<button id="btn-new" class="btn-new" type="button">
+				<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+				<span>新会话</span>
+			</button>
+			<div class="sb-search">
+				<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="M20 20l-4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+				<input id="search" type="search" placeholder="搜索历史问答内容" data-tooltip="搜索之前发生过的问答(标题和摘要不参与搜索)，如：&#10;1、<b>关键词以空格分隔</b>：如 <font color=yellow>aaa bbb</font> 是搜索同时含「aaa」和「bbb」两个关键词的某条答案。&#10;2、<b>英文双引号包裹</b> 是匹配整个文本，如 <font color=yellow>&quot;aaa bbb&quot;</font> 是搜索包含「aaa bbb」这个完整文本的某条答案。&#10;3、<b>竖线|</b> 是并列，如 <font color=yellow>aaa|bbb</font> 是搜索含「aaa」或者含「bbb」的某条答案。&#10;4、<b>减号-</b> 是排除，如 <font color=yellow>aaa -bbb</font> 是搜索含「aaa」但不含「bbb」的某条答案。">
+				<button id="search-clear" class="hidden" type="button" data-tooltip="清空搜索" aria-label="清空搜索">
+					<svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+				</button>
+			</div>
+			<div class="sb-filters" id="sb-filters">
+				<button class="fchip on" data-scope="q" type="button" data-tooltip="勾选后，关键词在每轮问答的「问题」文本中匹配；多个词须同时出现在同一轮的同一边（标题和摘要不参与搜索；两者至少保留一个）">问题</button>
+				<button class="fchip on" data-scope="a" type="button" data-tooltip="勾选后，关键词在每轮问答的「答案」文本中匹配；多个词须同时出现在同一轮的同一边（标题和摘要不参与搜索；两者至少保留一个）">答案</button>
+				<button class="fchip" data-scope="date" type="button" data-tooltip="按日期范围过滤：只保留该时间段内真正发生过的问答（那一轮的提问或回答落在范围内；中间空缺的日子不算），并与关键词条件同时满足（AND）">日期</button>
+				<button class="fchip" data-scope="cs" type="button" data-tooltip="大小写敏感开关：亮=区分大小写（aaa 搜不到 aaA）；灭（默认）=忽略大小写，aaa 也能搜到 aaA">Aa</button>
+			</div>
+			<div class="sb-dates hidden" id="sb-dates">
+				<span class="date-wrap" id="date-from-wrap">
+					<span class="date-show" id="date-from-show"></span>
+					<button class="date-clear hidden" id="date-from-clear" type="button" data-tooltip="清除此日期" aria-label="清除此日期"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg></button>
+					<input type="date" id="date-from" aria-label="开始日期">
+				</span>
+				<span class="date-sep">~</span>
+				<span class="date-wrap" id="date-to-wrap">
+					<span class="date-show" id="date-to-show"></span>
+					<button class="date-clear hidden" id="date-to-clear" type="button" data-tooltip="清除此日期" aria-label="清除此日期"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg></button>
+					<input type="date" id="date-to" aria-label="结束日期">
+				</span>
+			</div>
+		</div>
+		<nav id="sen-list" aria-label="会话列表"></nav>
+		<div class="sb-user">
+			<button id="u-center" type="button" aria-haspopup="menu" aria-expanded="false" data-tooltip="个人中心">
+				<div id="u-avatar" class="avatar"></div>
+				<div class="u-meta"><div id="u-name"></div><div id="u-role" class="u-role"></div></div>
+				<svg class="u-chev" viewBox="0 0 24 24"><path d="M6 15l6-6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+			</button>
+			<!-- 93/94/95: 个人中心菜单。btn-logout 沿用原 id 与原确认流程 -->
+			<div id="u-menu" class="u-menu hidden" role="menu">
+				<button class="u-menu-item" id="mi-pass" type="button" role="menuitem">修改密码</button>
+				<button class="u-menu-item" id="mi-keys" type="button" role="menuitem">API 密钥</button>
+				<button class="u-menu-item" id="mi-wallet" type="button" role="menuitem">钱包</button>
+				<button class="u-menu-item u-menu-danger" id="btn-logout" type="button" role="menuitem">退出登录</button>
+			</div>
+		</div>
+	</aside>
+	<div id="backdrop"></div>
+
+	<main id="main">
+		<header id="topbar">
+			<button id="btn-menu" class="icon-btn" type="button" aria-label="收起/展开会话列表" data-tooltip="收起/展开会话列表">
+				<svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+			</button>
+			<div class="top-title" id="top-title">新会话</div>
+			<div class="top-actions">
+				<span id="key-badge" class="key-badge hidden" data-tooltip="URL 追加 senKey=1 可显示 API 密钥/agent 直连的会话">含 API 密钥会话</span>
+				<div class="model-wrap">
+					<select id="model-sel" aria-label="模型"></select>
+				</div>
+				<button id="btn-gear" class="icon-btn" type="button" data-tooltip="系统提示词">
+					<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
+				</button>
+			</div>
+		</header>
+
+		<div id="gear-pop" class="hidden">
+			<div class="gear-title">系统提示词（可选，对所有会话生效）</div>
+			<textarea id="sysp" rows="5" placeholder="例如：你是一个乐于助人的中文助手。"></textarea>
+			<div class="gear-actions hidden" id="gear-actions">
+				<span class="gear-hint">修改尚未生效，确认后保存</span>
+				<div class="gear-btns">
+					<button id="sysp-cancel" class="btn-ghost" type="button">取消</button>
+					<button id="sysp-ok" class="btn-primary" type="button">确认</button>
+				</div>
+			</div>
+		</div>
+
+		<div id="chat-scroll">
+			<div id="chat"></div>
+		</div>
+
+		<div id="hl-bar" class="hidden">
+			<span id="hl-count">0/0</span>
+			<button id="hl-prev" type="button" data-tooltip="上一处" aria-label="上一处">
+				<svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+			</button>
+			<button id="hl-next" type="button" data-tooltip="下一处" aria-label="下一处">
+				<svg viewBox="0 0 24 24"><path d="M12 5v14M19 12l-7 7-7-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+			</button>
+			<button id="hl-close" type="button" data-tooltip="关闭高亮" aria-label="关闭高亮">
+				<svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+			</button>
+		</div>
+
+		<footer id="composer">
+			<div id="files-bar" class="hidden"></div>
+			<div id="send-error" class="hidden"></div>
+			<div class="composer-row">
+				<button id="btn-attach" class="icon-btn" type="button" data-tooltip="添加附件（图片 / 文本）">
+					<svg viewBox="0 0 24 24"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+				</button>
+				<input id="file-input" type="file" multiple hidden>
+				<textarea id="input" rows="1" placeholder="发送消息…" enterkeyhint="send"></textarea>
+				<button id="btn-send" class="btn-send" type="button" data-tooltip="发送" disabled>
+					<svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+				</button>
+				<button id="btn-stop" class="btn-stop hidden" type="button" data-tooltip="停止生成">
+					<svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/></svg>
+				</button>
+			</div>
+			<div class="composer-hint">Enter 发送 · Shift+Enter 换行 · 支持粘贴/拖入图片</div>
+		</footer>
+	</main>
+</div>
+
+<!-- 图片灯箱 -->
+<div id="lightbox" class="hidden">
+	<div class="lb-top">
+		<a id="lb-download" class="lb-btn" download>下载</a>
+		<button id="lb-close" class="lb-btn" type="button">关闭</button>
+	</div>
+	<img id="lb-img" alt="">
+</div>
+
+<!-- 退出登录确认(93/94 起通用化:删除密钥等也复用,标题/按钮文字动态设置) -->
+<div id="confirm-pop" class="hidden">
+	<div class="cf-card">
+		<div class="cf-title" id="cf-title">确认退出登录？</div>
+		<div class="cf-actions">
+			<button id="cf-cancel" class="btn-ghost" type="button">取消</button>
+			<button id="cf-ok" class="btn-primary" type="button">退出登录</button>
+		</div>
+	</div>
+</div>
+
+<!-- 93: 修改密码 -->
+<div id="dlg-pass" class="dlg-pop hidden">
+	<div class="cf-card">
+		<div class="cf-title">修改密码</div>
+		<div class="dlg-body">
+			<input id="pw-old" class="dlg-input" type="password" placeholder="原密码" autocomplete="current-password">
+			<input id="pw-new" class="dlg-input" type="password" placeholder="新密码（8~20 位）" autocomplete="new-password">
+			<input id="pw-new2" class="dlg-input" type="password" placeholder="确认新密码" autocomplete="new-password">
+			<div id="pw-err" class="dlg-err"></div>
+		</div>
+		<div class="cf-actions">
+			<button class="btn-ghost" type="button" data-close="dlg-pass">取消</button>
+			<button id="pw-ok" class="btn-primary" type="button">确认修改</button>
+		</div>
+	</div>
+</div>
+
+<!-- 94: API 密钥 -->
+<div id="dlg-keys" class="dlg-pop hidden">
+	<div class="cf-card dlg-wide">
+		<div class="cf-title">API 密钥</div>
+		<div class="dlg-body">
+			<div class="key-new">
+				<input id="key-name" class="dlg-input" type="text" placeholder="新密钥名称（可留空）" maxlength="50">
+				<button id="key-add" class="btn-primary" type="button">新建</button>
+			</div>
+			<div id="key-list" class="key-list"></div>
+			<div id="key-err" class="dlg-err"></div>
+		</div>
+		<div class="cf-actions">
+			<button class="btn-ghost" type="button" data-close="dlg-keys">关闭</button>
+		</div>
+	</div>
+</div>
+
+<!-- 94b: 密钥设置（额度/模型/IP 白名单，仅自建密钥） -->
+<div id="dlg-keyedit" class="dlg-pop hidden">
+	<div class="cf-card dlg-wide">
+		<div class="cf-title" id="ke-title">密钥设置</div>
+		<div class="dlg-body">
+			<div class="ke-sec">
+				<div class="ke-sec-title">额度</div>
+				<label class="ke-radio"><input type="radio" name="ke-quota" value="unlimited" checked>不限额度（跟随账户余额扣减）</label>
+				<label class="ke-radio"><input type="radio" name="ke-quota" value="limit">限定额度，剩余</label>
+				<div class="ke-quota-input hidden"><input id="ke-usd" class="dlg-input" type="number" min="0" step="0.01" placeholder="金额（美元），如 1.5"></div>
+			</div>
+			<div class="ke-sec">
+				<div class="ke-sec-title">可用模型</div>
+				<label class="ke-radio"><input type="radio" name="ke-model" value="all" checked>不限（全部可用模型）</label>
+				<label class="ke-radio"><input type="radio" name="ke-model" value="some">仅允许勾选的模型</label>
+				<div id="ke-models" class="ke-models hidden"></div>
+			</div>
+			<div class="ke-sec">
+				<div class="ke-sec-title">IP 白名单</div>
+				<div class="ke-hint">留空 = 不限。逗号或换行分隔，支持 IP（1.2.3.4）与网段（10.0.0.0/8）；不在名单内的来源将被拒绝。</div>
+				<textarea id="ke-ips" class="dlg-input ke-ips" rows="3" placeholder="例如：&#10;1.2.3.4&#10;10.0.0.0/8"></textarea>
+			</div>
+			<div id="ke-err" class="dlg-err"></div>
+		</div>
+		<div class="cf-actions">
+			<button class="btn-ghost" type="button" data-close="dlg-keyedit">取消</button>
+			<button id="ke-ok" class="btn-primary" type="button">保存</button>
+		</div>
+	</div>
+</div>
+
+<!-- 95: 钱包（只读） -->
+<div id="dlg-wallet" class="dlg-pop hidden">
+	<div class="cf-card dlg-wide">
+		<div class="cf-title">钱包</div>
+		<div class="dlg-body">
+			<div class="wal-top">
+				<div class="wal-remain-box">
+					<div id="wal-remain" class="wal-remain"></div>
+					<div class="wal-sub">剩余金额</div>
+				</div>
+				<div class="wal-used-box">累计已用<br><span id="wal-used"></span></div>
+			</div>
+			<div id="wal-list" class="wal-list"></div>
+			<div id="wal-note" class="wal-note"></div>
+		</div>
+		<div class="cf-actions">
+			<button class="btn-ghost" type="button" data-close="dlg-wallet">关闭</button>
+		</div>
+	</div>
+</div>
+
+<div id="toast" class="hidden"></div>
+
+<script src="/web/js/md.js"></script>
+<script src="/web/js/app.js"></script>
+</body>
+</html>
